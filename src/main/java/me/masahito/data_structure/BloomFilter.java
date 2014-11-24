@@ -25,14 +25,14 @@ public class BloomFilter<T> {
 
 
     public BloomFilter() {
-        this(DEFAULT_ERROR_RATE, DEFAULT_CAPACITY);
+        this(DEFAULT_CAPACITY, DEFAULT_ERROR_RATE);
     }
 
     public BloomFilter(final double errorRate) {
-        this(errorRate, DEFAULT_CAPACITY);
+        this(DEFAULT_CAPACITY, errorRate);
     }
 
-    public BloomFilter(final double errorRate, final int capacity) {
+    public BloomFilter(final int capacity, final double errorRate) {
 
         // generate BitSet
         Integer lowest_m = null;
