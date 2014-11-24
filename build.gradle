@@ -1,0 +1,32 @@
+apply plugin: 'java'
+apply plugin: 'idea'
+
+group = 'me.masahito'
+version = "0.1.0-SNAPSHOT"
+sourceCompatibility = targetCompatibility = '1.8'
+repositories.mavenCentral()
+
+configurations {
+    provided
+}
+
+sourceSets {
+    main {
+        compileClasspath += configurations.provided
+    }
+    test {
+        compileClasspath += configurations.provided
+        runtimeClasspath += configurations.provided
+    }
+}
+
+idea {
+    module {
+        scopes.PROVIDED.plus += [configurations.provided]
+    }
+}
+
+dependencies {
+    provided "org.projectlombok:lombok:1.14.8"
+    testCompile 'junit:junit:4.11'
+}
