@@ -1,6 +1,6 @@
 package me.masahito.util;
 
-public class Arrays {
+public class ArrayUtils {
 
     public static <T> T[] concat(T[] first, T[] second) {
         T[] result = java.util.Arrays.copyOf(first, first.length + second.length);

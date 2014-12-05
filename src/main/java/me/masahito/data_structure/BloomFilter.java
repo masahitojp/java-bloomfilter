@@ -1,11 +1,11 @@
 package me.masahito.data_structure;
 
-import me.masahito.util.Arrays;
+import lombok.Synchronized;
+import me.masahito.util.ArrayUtils;
 import me.masahito.util.Hash;
 
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Function;
@@ -18,8 +18,7 @@ public class BloomFilter<T> {
     private static final int DEFAULT_CAPACITY = 1024;
     private static final double DEFAULT_ERROR_RATE = 0.1;
 
-
-    private final BitSet bs;
+    private final int[] bs;
     private final MessageDigest md = Hash.getSha1();
     private final List<Function<T, Integer>> hashingFunctions;
 
@@ -47,7 +46,8 @@ public class BloomFilter<T> {
                 best_k = k;
             }
         }
-        bs = new BitSet(lowest_m);
+        bs = new int[lowest_m];
+        java.util.Arrays.fill(bs, 0);
 
         final Random rd = new Random();
         hashingFunctions = IntStream.range(0, best_k).boxed().map(s -> {
@@ -59,16 +59,31 @@ public class BloomFilter<T> {
 
 
     private Integer getHash(T o, byte[] salt) {
-        md.update(Arrays.concat(o.toString().getBytes(), salt));
+        md.update(ArrayUtils.concat(o.toString().getBytes(), salt));
         ByteBuffer wrapped = ByteBuffer.wrap(md.digest());
         return Math.abs(wrapped.getInt());
     }
 
+    @Synchronized
     public void add(T o) {
-        hashingFunctions.stream().forEach(salt -> bs.set(salt.apply(o) % md.getDigestLength()));
+        hashingFunctions.stream().forEach(salt -> {
+            final int idx = salt.apply(o) % md.getDigestLength();
+            bs[idx] += 1;
+        });
     }
 
+    @Synchronized
+    public void delete(T o) {
+        hashingFunctions.stream().forEach(salt -> {
+            final int idx = salt.apply(o) % md.getDigestLength();
+            if (bs[idx] > 0) {
+                bs[idx] -= 1;
+            }
+        });
+    }
+
+    @Synchronized
     public boolean check(T o) {
-        return hashingFunctions.stream().allMatch(salt -> bs.get(salt.apply(o) % md.getDigestLength()));
+        return hashingFunctions.stream().allMatch(salt -> bs[salt.apply(o) % md.getDigestLength()] > 0);
     }
 }
