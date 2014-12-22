@@ -7,6 +7,11 @@ group = 'me.masahito'
 version = "0.1.0-SNAPSHOT"
 sourceCompatibility = targetCompatibility = '1.8'
 
+
+repositories {
+    mavenCentral()
+}
+
 buildscript {
     repositories {
         mavenCentral()
