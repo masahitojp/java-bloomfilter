@@ -56,8 +56,21 @@ public class BloomFilterTest {
         final BloomFilter<String> bf2 = new BloomFilter<>();
         bf2.add("test");
 
+
+        final BloomFilter<String> bf3 = new BloomFilter<>(0.001);
+        bf3.add("test");
+
+        assertThat(bf.equals(null), is(false));
+        assertThat(bf.equals("test"), is(false));
+
         assertThat(bf.hashCode(), is(bf2.hashCode()));
         assertThat(bf, is(bf2));
+
+        bf2.add("test2");
+        assertThat(bf, is(not(bf2)));
+
+        assertThat(bf, is(not(bf3)));
+
     }
 
     @Test

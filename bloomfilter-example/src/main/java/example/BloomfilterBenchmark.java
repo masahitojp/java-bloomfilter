@@ -14,7 +14,9 @@
 * limitations under the License.
 */
 
-package me.masahito.data_structure;
+package example;
+
+import me.masahito.data_structure.BloomFilter;
 
 import java.util.List;
 import java.util.Random;
@@ -24,8 +26,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class BloomfilterBenchmark {
-	static int ELEMENTS = 50000; // Number of elements to test
-	static double CAPACITY = 0.0001;
+	public static int ELEMENTS = 50000; // Number of elements to test
+	public static double CAPACITY = 0.0001;
 
 	public static void timeCheck(String test, List<String> elements, Consumer<String> consumer) {
 		System.out.print(test);
@@ -42,7 +44,7 @@ public class BloomfilterBenchmark {
 
 	public static List<String> getElements() {
 		final Random r = new Random();
-		return IntStream.range(1, ELEMENTS).boxed().map(i -> {
+		return IntStream.range(0, ELEMENTS).boxed().map(i -> {
 			byte[] b = new byte[200];
 			r.nextBytes(b);
 			return new String(b);

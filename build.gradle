@@ -1,16 +1,5 @@
-apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'jacoco'
+
 apply plugin: 'com.github.kt3k.coveralls'
-
-group = 'me.masahito'
-version = "0.1.0-SNAPSHOT"
-sourceCompatibility = targetCompatibility = '1.8'
-
-
-repositories {
-    mavenCentral()
-}
 
 buildscript {
     repositories {
@@ -22,34 +11,78 @@ buildscript {
     }
 }
 
-configurations {
-    provided
-}
+allprojects {
+    apply plugin: 'base'
+    apply plugin: 'jacoco'
 
-sourceSets {
-    main {
-        compileClasspath += configurations.provided
-    }
-    test {
-        compileClasspath += configurations.provided
-        runtimeClasspath += configurations.provided
+    repositories.jcenter()
+
+    jacoco {
+        toolVersion = '0.7.2.201409121644'
     }
 }
 
-idea {
-    module {
-        scopes.PROVIDED.plus += [configurations.provided]
+configure(subprojects) {
+    apply plugin: 'java'
+    apply plugin: 'idea'
+
+    group = 'me.masahito'
+    version = "0.1.0-SNAPSHOT"
+    sourceCompatibility = targetCompatibility = '1.8'
+
+    configurations {
+        provided
+    }
+
+    sourceSets {
+        main {
+            compileClasspath += configurations.provided
+        }
+        test {
+            compileClasspath += configurations.provided
+            runtimeClasspath += configurations.provided
+        }
+    }
+
+    idea {
+        module {
+            scopes.PROVIDED.plus += [configurations.provided]
+        }
+    }
+
+    jacocoTestReport {
+        reports {
+            html.enabled = true
+            xml.enabled = true
+            csv.enabled = false
+        }
+    }
+
+    dependencies {
+        provided "org.projectlombok:lombok:1.14.8"
+        testCompile 'junit:junit:4.11'
     }
 }
 
-jacocoTestReport {
+project("bloomfilter-example") {
+    dependencies {
+        compile project(":bloomfilter-core")
+    }
+}
+
+coveralls {
+    sourceDirs = files(subprojects.sourceSets.main.allSource.srcDirs).files.absolutePath
+}
+
+task jacocoRootReport(type: org.gradle.testing.jacoco.tasks.JacocoReport) {
+    dependsOn = subprojects.test
+    sourceDirectories = files(subprojects.sourceSets.main.allSource.srcDirs)
+    classDirectories = files(subprojects.sourceSets.main.output)
+    executionData = files(subprojects.jacocoTestReport.executionData)
     reports {
-        xml.enabled = true // coveralls plugin depends on xml format report
         html.enabled = true
+        xml.enabled = true
+        csv.enabled = false
+        xml.destination = "${buildDir}/reports/jacoco/test/jacocoTestReport.xml"
     }
-}
-
-dependencies {
-    provided "org.projectlombok:lombok:1.14.8"
-    testCompile 'junit:junit:4.11'
 }
