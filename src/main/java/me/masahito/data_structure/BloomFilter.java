@@ -22,7 +22,6 @@ import java.nio.ByteBuffer;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -36,6 +35,7 @@ public class BloomFilter<T> {
     private final StampedLock lock = new StampedLock();
     private final int[] bs;
     private final List<Function<T, Integer>> hashingFunctions;
+    private final int k;
 
     public BloomFilter() {
         this(DEFAULT_CAPACITY, DEFAULT_ERROR_RATE);
@@ -45,32 +45,30 @@ public class BloomFilter<T> {
         this(DEFAULT_CAPACITY, errorRate);
     }
 
-    public BloomFilter(final int capacity, final double errorRate) {
-
-        // generate BitSet
-        Integer lowest_m = null;
-        int best_k = 1;
-
-        for (int k = 1; k < 100; k++) {
-            int m = (int) ((-1 * k * capacity) /
-                    (Math.log(1 - Math.pow(errorRate, 1.0 / k))));
-
-            if (lowest_m == null || m < lowest_m) {
-                lowest_m = m;
-                best_k = k;
-            }
-        }
-        bs = new int[lowest_m];
-        Arrays.fill(bs, 0);
-
-        final Random rd = new Random();
-        hashingFunctions = IntStream.range(0, best_k).boxed().map(s -> {
-            final byte[] b = new byte[BYTES_FOR_SALT];
-            rd.nextBytes(b);
-            return (Function<T, Integer>) (T x) -> getHash(x, b);
+    public BloomFilter(final BloomFilterForBestBitSetsContainer pair) {
+        this(pair.bitSetSize, pair.hashes);
+    }
+    public BloomFilter(final int bitSetSize, final int hashes) {
+        this.bs = new int[bitSetSize];
+        Arrays.fill(this.bs, 0);
+        this.k = hashes;
+        this.hashingFunctions = IntStream.range(0, this.k).boxed().map(s -> {
+            final ByteBuffer b = ByteBuffer.allocate(BYTES_FOR_SALT);
+            b.putInt(s);
+            return (Function<T, Integer>) (T x) -> getHash(x, b.array());
         }).collect(Collectors.toList());
     }
+    public BloomFilter(final int capacity, final double errorRate) {
+        this(BloomFilterForBestBitSetsContainer.getBestBitSetSize(capacity, errorRate));
+    }
 
+    public int[] getBitSets() {
+        return this.bs;
+    }
+
+    public int getK() {
+        return this.k;
+    }
 
     private Integer getHash(T o, byte[] salt) {
         final MessageDigest sha1 = Hash.getSha1();
@@ -122,7 +120,7 @@ public class BloomFilter<T> {
      * BloomFilterに要素が追加済みか確認します。
      * @param o instance of {@link T}
      */
-    public boolean check(T o) {
+    public boolean contains(T o) {
         return hashingFunctions.stream().parallel().allMatch(salt -> {
             long stamp = lock.tryOptimisticRead();
             final int idx = salt.apply(o) % Hash.getSha1().getDigestLength();
