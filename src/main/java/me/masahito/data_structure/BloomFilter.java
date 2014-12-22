@@ -67,7 +67,7 @@ public class BloomFilter<T> {
      * @param o instance of {@link T}
      */
     public void add(T o) {
-        hashingFunctions.stream().parallel().forEach(salt -> {
+        hashingFunctions.parallelStream().forEach(salt -> {
             final MessageDigest sha1 = Hash.getSha1();
             final int idx = salt.apply(o) % sha1.getDigestLength();
             long stamp = lock.writeLock();
@@ -87,7 +87,7 @@ public class BloomFilter<T> {
      * @param o instance of {@link T}
      */
     public void delete(T o) {
-        hashingFunctions.stream().parallel().forEach(salt -> {
+        hashingFunctions.parallelStream().forEach(salt -> {
             final MessageDigest sha1 =  Hash.getSha1();
             final int idx = salt.apply(o) %  sha1.getDigestLength();
             long stamp = lock.writeLock();
@@ -106,7 +106,7 @@ public class BloomFilter<T> {
      * @param o instance of {@link T}
      */
     public boolean contains(T o) {
-        return hashingFunctions.stream().parallel().allMatch(salt -> {
+        return hashingFunctions.parallelStream().allMatch(salt -> {
             long stamp = lock.tryOptimisticRead();
             final int idx = salt.apply(o) % Hash.getSha1().getDigestLength();
             int a = bs[idx];
