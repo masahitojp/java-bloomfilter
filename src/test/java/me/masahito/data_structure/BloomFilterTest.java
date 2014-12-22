@@ -44,7 +44,8 @@ public class BloomFilterTest {
     @Test
     public void deleteToAdd() throws Exception {
         bf.delete("test");
-        assertThat(bf.contains("test"), is(not(true)));
+        assertThat(bf.contains("test"), is(false));
+
         bf.add("test");
         assertThat(bf.contains("test"), is(true));
     }
@@ -74,7 +75,11 @@ public class BloomFilterTest {
         ois.close();
         bin.close();
 
-        assertThat(newBf.getBitSets(), is(bf.getBitSets()));
+
+        assertThat(bf.getBitSets(), is(newBf.getBitSets()));
+        assertThat(bf.getK(), is(newBf.getK()));
+        assertThat(bf.hashCode(), is(newBf.hashCode()));
+        assertThat(bf, is(newBf));
         assertThat(newBf.contains("test"), is(true));
     }
 }
