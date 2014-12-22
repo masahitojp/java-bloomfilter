@@ -17,10 +17,12 @@ public class BloomFilter<T> {
     private static final int DEFAULT_CAPACITY = 1024;
     private static final double DEFAULT_ERROR_RATE = 0.01; //default: 1%
 
-    private final StampedLock lock = new StampedLock();
     private final int[] bs;
-    private final List<Function<T, Integer>> hashingFunctions;
     private final int k;
+
+    private final StampedLock lock = new StampedLock();
+    private final int digestLength;
+    private final List<Function<T, Integer>> hashingFunctions;
 
     public BloomFilter() {
         this(DEFAULT_CAPACITY, DEFAULT_ERROR_RATE);
@@ -38,10 +40,11 @@ public class BloomFilter<T> {
         Arrays.fill(this.bs, 0);
         this.k = hashes;
         this.hashingFunctions = IntStream.range(0, this.k).boxed().map(s -> {
-            final ByteBuffer b = ByteBuffer.allocate(BYTES_FOR_SALT);
-            b.putInt(s);
-            return (Function<T, Integer>) (T x) -> getHash(x, b.array());
-        }).collect(Collectors.toList());
+                final ByteBuffer b = ByteBuffer.allocate(BYTES_FOR_SALT);
+                b.putInt(s);
+                return (Function<T, Integer>) (T x) -> getHash(x, b.array());
+            }).collect(Collectors.toList());
+        this.digestLength = Hash.getSha1().getDigestLength();
     }
     public BloomFilter(final int capacity, final double errorRate) {
         this(BloomFilterForBestBitSetsContainer.getBestBitSetSize(capacity, errorRate));
@@ -63,13 +66,12 @@ public class BloomFilter<T> {
     }
 
     /**
-     * BloomFilterに要素を追加します。
+     * add an element to the BloomFilter
      * @param o instance of {@link T}
      */
     public void add(T o) {
         hashingFunctions.parallelStream().forEach(salt -> {
-            final MessageDigest sha1 = Hash.getSha1();
-            final int idx = salt.apply(o) % sha1.getDigestLength();
+            final int idx = salt.apply(o) % this.digestLength;
             long stamp = lock.writeLock();
             try {
                 if (bs[idx] < Integer.MAX_VALUE) {
@@ -83,13 +85,12 @@ public class BloomFilter<T> {
     }
 
     /**
-     * BloomFilterから要素を削除します。
+     * remove an element from the BloomFilter
      * @param o instance of {@link T}
      */
     public void delete(T o) {
         hashingFunctions.parallelStream().forEach(salt -> {
-            final MessageDigest sha1 =  Hash.getSha1();
-            final int idx = salt.apply(o) %  sha1.getDigestLength();
+            final int idx = salt.apply(o) % this.digestLength;
             long stamp = lock.writeLock();
             try {
                 if (bs[idx] > 0) {
@@ -102,26 +103,23 @@ public class BloomFilter<T> {
     }
 
     /**
-     * BloomFilterに要素が追加済みか確認します。
+     * check contains an element from the BloomFilter
      * @param o instance of {@link T}
      */
     public boolean contains(T o) {
         return hashingFunctions.parallelStream().allMatch(salt -> {
             long stamp = lock.tryOptimisticRead();
-            final int idx = salt.apply(o) % Hash.getSha1().getDigestLength();
-            int a = bs[idx];
-            // 他のスレッドから値が更新されていないことを確認
+            final int idx = salt.apply(o) % this.digestLength;
+            int result = bs[idx];
             if (!lock.validate(stamp)) {
-                // 他のスレッドから値が更新されていた場合は読み取りロックを取得して読み取り
                 stamp = lock.readLock();
                 try {
-                    a = bs[idx];
+                    result = bs[idx];
                 } finally {
-                    // 読み取りロックを解放
                     lock.unlockRead(stamp);
                 }
             }
-            return a > 0;
+            return result > 0;
         });
     }
 }
