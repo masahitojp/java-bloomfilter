@@ -1,27 +1,27 @@
 package me.masahito.data_structure;
 
-import lombok.Synchronized;
+
 import me.masahito.util.ArrayUtils;
 import me.masahito.util.Hash;
 
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.locks.StampedLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-
 public class BloomFilter<T> {
     private static final int BYTES_FOR_SALT = 20;
     private static final int DEFAULT_CAPACITY = 1024;
-    private static final double DEFAULT_ERROR_RATE = 0.1;
+    private static final double DEFAULT_ERROR_RATE = 0.01; //default: 1%
 
+    private final StampedLock lock = new StampedLock();
     private final int[] bs;
-    private final MessageDigest md = Hash.getSha1();
     private final List<Function<T, Integer>> hashingFunctions;
-
 
     public BloomFilter() {
         this(DEFAULT_CAPACITY, DEFAULT_ERROR_RATE);
@@ -47,7 +47,7 @@ public class BloomFilter<T> {
             }
         }
         bs = new int[lowest_m];
-        java.util.Arrays.fill(bs, 0);
+        Arrays.fill(bs, 0);
 
         final Random rd = new Random();
         hashingFunctions = IntStream.range(0, best_k).boxed().map(s -> {
@@ -59,31 +59,48 @@ public class BloomFilter<T> {
 
 
     private Integer getHash(T o, byte[] salt) {
-        md.update(ArrayUtils.concat(o.toString().getBytes(), salt));
-        ByteBuffer wrapped = ByteBuffer.wrap(md.digest());
+        final MessageDigest sha1 = Hash.getSha1();
+        sha1.update(ArrayUtils.concat(o.toString().getBytes(), salt));
+        ByteBuffer wrapped = ByteBuffer.wrap(sha1.digest());
         return Math.abs(wrapped.getInt());
     }
 
-    @Synchronized
     public void add(T o) {
-        hashingFunctions.stream().forEach(salt -> {
-            final int idx = salt.apply(o) % md.getDigestLength();
+        hashingFunctions.stream().parallel().forEach(salt -> {
+            final MessageDigest sha1 = Hash.getSha1();
+            final int idx = salt.apply(o) % sha1.getDigestLength();
+            long stamp = lock.writeLock();
             bs[idx] += 1;
+            lock.unlockWrite(stamp);
         });
     }
 
-    @Synchronized
     public void delete(T o) {
-        hashingFunctions.stream().forEach(salt -> {
-            final int idx = salt.apply(o) % md.getDigestLength();
+        hashingFunctions.stream().parallel().forEach(salt -> {
+            final MessageDigest sha1 =  Hash.getSha1();
+            final int idx = salt.apply(o) %  sha1.getDigestLength();
+            long stamp = lock.writeLock();
             if (bs[idx] > 0) {
                 bs[idx] -= 1;
             }
+            lock.unlockWrite(stamp);
         });
     }
 
-    @Synchronized
     public boolean check(T o) {
-        return hashingFunctions.stream().allMatch(salt -> bs[salt.apply(o) % md.getDigestLength()] > 0);
+        return hashingFunctions.stream().parallel().allMatch(salt -> {
+            long stamp = lock.tryOptimisticRead();
+            final int idx = salt.apply(o) % Hash.getSha1().getDigestLength();
+            int a = bs[idx];
+            // 他のスレッドから値が更新されていないことを確認
+            if (!lock.validate(stamp)) {
+                // 他のスレッドから値が更新されていた場合は読み取りロックを取得して読み取り
+                stamp = lock.readLock();
+                a = bs[idx];
+                // 読み取りロックを解放
+                lock.unlockRead(stamp);
+            }
+            return a > 0;
+        });
     }
 }
