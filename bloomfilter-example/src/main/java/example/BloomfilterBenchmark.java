@@ -67,10 +67,10 @@ public class BloomfilterBenchmark {
 		timeCheck("add(): ", existingElements, bf::add);
 
 		// Check for existing elements with check()
-		timeCheck("check(), existing: ", existingElements, bf::contains);
+		timeCheck("contains(), existing: ", existingElements, bf::contains);
 
 		// Check for nonexisting elements with check()
-		timeCheck("check(), nonexisting: ", nonExistingElements, bf::contains);
+		timeCheck("contains(), nonexisting: ", nonExistingElements, bf::contains);
 
 		// Delete elements
 		timeCheck("delete(): ", existingElements, bf::delete);

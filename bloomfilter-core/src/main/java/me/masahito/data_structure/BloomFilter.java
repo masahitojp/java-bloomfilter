@@ -1,14 +1,28 @@
+/*
+* Copyright 2014 Nakamura Masato
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+* http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 package me.masahito.data_structure;
-
-import me.masahito.util.ArrayUtils;
-import me.masahito.util.Hash;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.locks.StampedLock;
@@ -22,6 +36,8 @@ public class BloomFilter<T> implements Serializable {
     private static final int BYTES_FOR_SALT = 20;
     private static final int DEFAULT_CAPACITY = 1024;
     private static final double DEFAULT_ERROR_RATE = 0.01; //default: 1%
+
+    private static final Charset charset = Charset.forName("UTF-8");
 
     private int[] bitset;
     private int k;
@@ -60,7 +76,7 @@ public class BloomFilter<T> implements Serializable {
             b.putInt(s);
             return (Function<T, Integer>) (T x) -> getHash(x, b.array());
         }).collect(Collectors.toList());
-        this.digestLength = Hash.getSha1().getDigestLength();
+        this.digestLength = this.getSha1().getDigestLength();
         this.lock = new StampedLock();
     }
 
@@ -81,7 +97,7 @@ public class BloomFilter<T> implements Serializable {
     public void add(T o) {
         hashingFunctions.parallelStream().forEach(salt -> {
             final int idx = salt.apply(o) % this.digestLength;
-            long stamp = lock.writeLock();
+            final long stamp = lock.writeLock();
             try {
                 if (bitset[idx] < Integer.MAX_VALUE) {
                     bitset[idx] += 1;
@@ -97,10 +113,10 @@ public class BloomFilter<T> implements Serializable {
      * remove an element from the BloomFilter
      * @param o instance of {@link T}
      */
-    public void delete(T o) {
+    public void delete(final T o) {
         hashingFunctions.parallelStream().forEach(salt -> {
             final int idx = salt.apply(o) % this.digestLength;
-            long stamp = lock.writeLock();
+            final long stamp = lock.writeLock();
             try {
                 if (bitset[idx] > 0) {
                     bitset[idx] -= 1;
@@ -115,7 +131,7 @@ public class BloomFilter<T> implements Serializable {
      * check contains an element from the BloomFilter
      * @param o instance of {@link T}
      */
-    public boolean contains(T o) {
+    public final boolean contains(final T o) {
         return hashingFunctions.parallelStream().allMatch(salt -> {
             long stamp = lock.tryOptimisticRead();
             final int idx = salt.apply(o) % this.digestLength;
@@ -160,9 +176,24 @@ public class BloomFilter<T> implements Serializable {
 
     /** private methods **/
 
+    private byte[] byteArrayConcat(byte[] first, byte[] second) {
+        byte[] result = java.util.Arrays.copyOf(first, first.length + second.length);
+        System.arraycopy(second, 0, result, first.length, second.length);
+        return result;
+    }
+
+    private MessageDigest getSha1() {
+        try {
+            return MessageDigest.getInstance("SHA-1");
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     private Integer getHash(T o, byte[] salt) {
-        final MessageDigest sha1 = Hash.getSha1();
-        sha1.update(ArrayUtils.concat(o.toString().getBytes(), salt));
+        final MessageDigest sha1 = this.getSha1();
+        sha1.update(this.byteArrayConcat(o.toString().getBytes(charset), salt));
         ByteBuffer wrapped = ByteBuffer.wrap(sha1.digest());
         return Math.abs(wrapped.getInt());
     }
