@@ -42,6 +42,13 @@ idea {
     }
 }
 
+jacocoTestReport {
+    reports {
+        xml.enabled = true // coveralls plugin depends on xml format report
+        html.enabled = true
+    }
+}
+
 dependencies {
     provided "org.projectlombok:lombok:1.14.8"
     testCompile 'junit:junit:4.11'
