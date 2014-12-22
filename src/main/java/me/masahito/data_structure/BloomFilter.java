@@ -1,5 +1,19 @@
+/*
+* Copyright 2014 Nakamura Masato
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+* http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
 package me.masahito.data_structure;
-
 
 import me.masahito.util.ArrayUtils;
 import me.masahito.util.Hash;
@@ -65,28 +79,49 @@ public class BloomFilter<T> {
         return Math.abs(wrapped.getInt());
     }
 
+    /**
+     * BloomFilterに要素を追加します。
+     * @param o instance of {@link T}
+     */
     public void add(T o) {
         hashingFunctions.stream().parallel().forEach(salt -> {
             final MessageDigest sha1 = Hash.getSha1();
             final int idx = salt.apply(o) % sha1.getDigestLength();
             long stamp = lock.writeLock();
-            bs[idx] += 1;
-            lock.unlockWrite(stamp);
+            try {
+                if (bs[idx] < Integer.MAX_VALUE) {
+                    bs[idx] += 1;
+                }
+            }
+            finally {
+                lock.unlockWrite(stamp);
+            }
         });
     }
 
+    /**
+     * BloomFilterから要素を削除します。
+     * @param o instance of {@link T}
+     */
     public void delete(T o) {
         hashingFunctions.stream().parallel().forEach(salt -> {
             final MessageDigest sha1 =  Hash.getSha1();
             final int idx = salt.apply(o) %  sha1.getDigestLength();
             long stamp = lock.writeLock();
-            if (bs[idx] > 0) {
-                bs[idx] -= 1;
+            try {
+                if (bs[idx] > 0) {
+                    bs[idx] -= 1;
+                }
+            } finally {
+                lock.unlockWrite(stamp);
             }
-            lock.unlockWrite(stamp);
         });
     }
 
+    /**
+     * BloomFilterに要素が追加済みか確認します。
+     * @param o instance of {@link T}
+     */
     public boolean check(T o) {
         return hashingFunctions.stream().parallel().allMatch(salt -> {
             long stamp = lock.tryOptimisticRead();
@@ -96,9 +131,12 @@ public class BloomFilter<T> {
             if (!lock.validate(stamp)) {
                 // 他のスレッドから値が更新されていた場合は読み取りロックを取得して読み取り
                 stamp = lock.readLock();
-                a = bs[idx];
-                // 読み取りロックを解放
-                lock.unlockRead(stamp);
+                try {
+                    a = bs[idx];
+                } finally {
+                    // 読み取りロックを解放
+                    lock.unlockRead(stamp);
+                }
             }
             return a > 0;
         });
