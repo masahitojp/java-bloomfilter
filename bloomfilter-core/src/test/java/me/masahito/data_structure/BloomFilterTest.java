@@ -19,6 +19,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.*;
+import java.util.Arrays;
 
 import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.CoreMatchers.is;
@@ -63,6 +64,18 @@ public class BloomFilterTest {
 
         bf.add("test");
         assertThat(bf.contains("test"), is(true));
+    }
+
+    @Test
+    public void clear() {
+        bf.add("test");
+        bf.clear();
+
+        final int[] test = new int[bf.getBitSets().length];
+        Arrays.fill(test, 0);
+
+        assertThat(bf.getBitSets(), is(test));
+        assertThat(bf.contains("test"), is(false));
     }
 
     @Test

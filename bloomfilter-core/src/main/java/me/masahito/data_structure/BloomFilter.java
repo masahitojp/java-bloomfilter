@@ -130,6 +130,8 @@ public class BloomFilter<T> implements Serializable {
     /**
      * check contains an element from the BloomFilter
      * @param o instance of {@link T}
+     * @return true if the element could have been inserted
+     *           but there is a possibility of false-positive
      */
     public final boolean contains(final T o) {
         return hashingFunctions.parallelStream().allMatch(salt -> {
@@ -146,6 +148,18 @@ public class BloomFilter<T> implements Serializable {
             }
             return result > 0;
         });
+    }
+
+    /**
+     * Sets all bits to 0 in the BloomFilter.
+     */
+    public void clear() {
+        final long stamp = lock.writeLock();
+        try {
+            Arrays.fill(this.bitset, 0);
+        } finally {
+            lock.unlockWrite(stamp);
+        }
     }
 
     @Override

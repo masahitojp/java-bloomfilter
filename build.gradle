@@ -10,9 +10,6 @@ buildscript {
     }
 }
 
-apply plugin:'application'
-mainClassName = "example.BloomfilterBenchmark"
-
 allprojects {
     apply plugin: 'base'
     apply plugin: 'jacoco'
