@@ -26,7 +26,8 @@ configure(subprojects) {
     apply plugin: 'idea'
 
     group = 'me.masahito'
-    version = "0.1.0-SNAPSHOT"
+    archivesBaseName = "bloomfilter"
+    version = "0.1.0"
     sourceCompatibility = targetCompatibility = '1.8'
 
     configurations {
@@ -67,6 +68,76 @@ project("bloomfilter-example") {
     dependencies {
         compile project(":bloomfilter-core")
     }
+}
+
+configure([project("bloomfilter-core")]) {
+    jar.manifest {
+        attributes(
+                'Implementation-Title' : name,
+                'Implementation-Version': version,
+                'Implementation-Vendor': 'me.masahito',
+                'Built-JDK': "${System.getProperty("java.version")} (${System.getProperty("java.specification.vendor")})",
+                'Built-Gradle': gradle.gradleVersion
+        )
+    }
+    task sourcesJar(type: Jar, dependsOn: classes) {
+        classifier = 'sources'
+        from sourceSets.main.allSource
+    }
+    task javadocJar(type: Jar) {
+        classifier = "javadoc"
+        from javadoc
+    }
+    artifacts {
+        archives javadocJar, sourcesJar
+    }
+    apply plugin: 'maven'
+    apply plugin: 'signing'
+
+
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+                repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                    authentication(userName: ossrhUsername, password: ossrhPassword)
+                }
+
+                snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+                    authentication(userName: ossrhUsername, password: ossrhPassword)
+                }
+
+                pom.project {
+                    name 'BloomFilter'
+                    packaging 'jar'
+                    // optionally artifactId can be defined here
+                    description 'Bloom Filter Implementation'
+                    url 'https://github.com/masahitojp/java-bloomfilter'
+
+                    scm {
+                        url 'https://github.com/masahitojp/java-bloomfilter'
+                    }
+
+                    licenses {
+                        license {
+                            name 'The Apache License, Version 2.0'
+                            url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id 'masahito'
+                            name "Nakamura Masato"
+                            email "randomstep@gmail.com"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 coveralls {
