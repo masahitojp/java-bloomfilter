@@ -94,6 +94,9 @@ configure([project("bloomfilter-core")]) {
     apply plugin: 'maven'
     apply plugin: 'signing'
 
+    signing {
+        sign configurations.archives
+    }
 
     uploadArchives {
         repositories {
