@@ -94,9 +94,6 @@ configure([project("bloomfilter-core")]) {
     apply plugin: 'maven'
     apply plugin: 'signing'
 
-    ext.ossrhUsername = hasProperty('ossrhUsername') ? ossrhUsername : 'dummyuser'
-    ext.ossrhPassword = hasProperty('ossrhPassword') ? ossrhPassword : 'dummypass'
-
     signing {
         sign configurations.archives
     }
