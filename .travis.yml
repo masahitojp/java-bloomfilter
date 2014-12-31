@@ -9,5 +9,14 @@ env:
   matrix:
   - TERM=dumb
 
+before_install:
+  - cp gradle.properties.sample gradle.properties
+
+install:
+  - ./gradlew assemble -x signArchives
+
+script:
+  - ./gradlew build -x signArchives
+
 after_success:
-- ./gradlew jacocoRootReport coveralls
+  - ./gradlew jacocoRootReport coveralls
